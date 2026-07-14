@@ -21,6 +21,7 @@ class M3EHapticConfig {
   final double progressBasedDragMaxScale;
   final double additionalVelocityMaxBump;
   final double maxVelocityToScale;
+  final Duration minimumDragInterval;
 
   const M3EHapticConfig({
     this.enableContinuousDrag = true,
@@ -33,40 +34,56 @@ class M3EHapticConfig {
     this.progressBasedDragMaxScale = 0.85,
     this.additionalVelocityMaxBump = 0.25,
     this.maxVelocityToScale = 200.0,
-  });
+    this.minimumDragInterval = const Duration(milliseconds: 10),
+  })  : assert(deltaProgressForDragThreshold >= 0.0),
+        assert(lowerBookendThreshold >= 0.0 && lowerBookendThreshold <= 1.0),
+        assert(upperBookendThreshold >= 0.0 && upperBookendThreshold <= 1.0),
+        assert(lowerBookendThreshold <= upperBookendThreshold),
+        assert(progressBasedDragMinScale >= 0.0 &&
+            progressBasedDragMinScale <= 1.0),
+        assert(progressBasedDragMaxScale >= 0.0 &&
+            progressBasedDragMaxScale <= 1.0),
+        assert(progressBasedDragMinScale <= progressBasedDragMaxScale),
+        assert(additionalVelocityMaxBump >= 0.0),
+        assert(maxVelocityToScale > 0.0);
 
-  const M3EHapticConfig.continuous() : this(
-    enableContinuousDrag: true,
-    deltaProgressForDragThreshold: 0.02,
-    vibrateOnLowerBookend: true,
-    vibrateOnUpperBookend: true,
-    lowerBookendThreshold: 0.01,
-    upperBookendThreshold: 0.99,
-    progressBasedDragMinScale: 0.10,
-    progressBasedDragMaxScale: 0.85,
-    additionalVelocityMaxBump: 0.1,
-    maxVelocityToScale: 200.0,
-  );
+  const M3EHapticConfig.continuous()
+      : this(
+          enableContinuousDrag: true,
+          deltaProgressForDragThreshold: 0.02,
+          vibrateOnLowerBookend: true,
+          vibrateOnUpperBookend: true,
+          lowerBookendThreshold: 0.01,
+          upperBookendThreshold: 0.99,
+          progressBasedDragMinScale: 0.10,
+          progressBasedDragMaxScale: 0.85,
+          additionalVelocityMaxBump: 0.1,
+          maxVelocityToScale: 200.0,
+          minimumDragInterval: const Duration(milliseconds: 10),
+        );
 
-  const M3EHapticConfig.discrete() : this(
-    enableContinuousDrag: false,
-    deltaProgressForDragThreshold: 0.0,
-    vibrateOnLowerBookend: true,
-    vibrateOnUpperBookend: true,
-    lowerBookendThreshold: 0.0,
-    upperBookendThreshold: 1.0,
-    progressBasedDragMinScale: 0.20,
-    progressBasedDragMaxScale: 0.50,
-    additionalVelocityMaxBump: 0.20,
-    maxVelocityToScale: 100.0,
-  );
+  const M3EHapticConfig.discrete()
+      : this(
+          enableContinuousDrag: false,
+          deltaProgressForDragThreshold: 0.0,
+          vibrateOnLowerBookend: true,
+          vibrateOnUpperBookend: true,
+          lowerBookendThreshold: 0.0,
+          upperBookendThreshold: 1.0,
+          progressBasedDragMinScale: 0.20,
+          progressBasedDragMaxScale: 0.50,
+          additionalVelocityMaxBump: 0.20,
+          maxVelocityToScale: 100.0,
+          minimumDragInterval: Duration.zero,
+        );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is M3EHapticConfig &&
           enableContinuousDrag == other.enableContinuousDrag &&
-          deltaProgressForDragThreshold == other.deltaProgressForDragThreshold &&
+          deltaProgressForDragThreshold ==
+              other.deltaProgressForDragThreshold &&
           vibrateOnLowerBookend == other.vibrateOnLowerBookend &&
           vibrateOnUpperBookend == other.vibrateOnUpperBookend &&
           lowerBookendThreshold == other.lowerBookendThreshold &&
@@ -74,21 +91,23 @@ class M3EHapticConfig {
           progressBasedDragMinScale == other.progressBasedDragMinScale &&
           progressBasedDragMaxScale == other.progressBasedDragMaxScale &&
           additionalVelocityMaxBump == other.additionalVelocityMaxBump &&
-          maxVelocityToScale == other.maxVelocityToScale;
+          maxVelocityToScale == other.maxVelocityToScale &&
+          minimumDragInterval == other.minimumDragInterval;
 
   @override
   int get hashCode => Object.hash(
-    enableContinuousDrag,
-    deltaProgressForDragThreshold,
-    vibrateOnLowerBookend,
-    vibrateOnUpperBookend,
-    lowerBookendThreshold,
-    upperBookendThreshold,
-    progressBasedDragMinScale,
-    progressBasedDragMaxScale,
-    additionalVelocityMaxBump,
-    maxVelocityToScale,
-  );
+        enableContinuousDrag,
+        deltaProgressForDragThreshold,
+        vibrateOnLowerBookend,
+        vibrateOnUpperBookend,
+        lowerBookendThreshold,
+        upperBookendThreshold,
+        progressBasedDragMinScale,
+        progressBasedDragMaxScale,
+        additionalVelocityMaxBump,
+        maxVelocityToScale,
+        minimumDragInterval,
+      );
 }
 
 class M3EHapticTracker {
@@ -99,6 +118,7 @@ class M3EHapticTracker {
   bool _hasTriggeredLowerBookend = false;
   bool _hasTriggeredUpperBookend = false;
   DateTime? _lastDragTime;
+  DateTime? _lastDragHapticTime;
   Offset? _lastDragPosition;
   double _currentVelocity = 0.0;
 
@@ -112,6 +132,7 @@ class M3EHapticTracker {
     _hasTriggeredLowerBookend = false;
     _hasTriggeredUpperBookend = false;
     _lastDragTime = DateTime.now();
+    _lastDragHapticTime = null;
     _lastDragPosition = globalPosition;
     _currentVelocity = 0.0;
   }
@@ -136,14 +157,16 @@ class M3EHapticTracker {
 
   void triggerTick(double progress) {
     if (baseHaptic == M3EHapticFeedback.none) return;
-    final amplitude = _computeAmplitude(progress, config.progressBasedDragMinScale, config.progressBasedDragMaxScale);
+    final amplitude = _computeAmplitude(progress,
+        config.progressBasedDragMinScale, config.progressBasedDragMaxScale);
     applyTypedHaptic('tickCrossing', amplitude);
   }
 
   void _performHapticFeedback(double progress) {
     if (baseHaptic == M3EHapticFeedback.none) return;
 
-    if (config.vibrateOnLowerBookend && progress <= config.lowerBookendThreshold) {
+    if (config.vibrateOnLowerBookend &&
+        progress <= config.lowerBookendThreshold) {
       if (!_hasTriggeredLowerBookend) {
         _hasTriggeredLowerBookend = true;
         applyTypedHaptic('bookendLower', 1.0);
@@ -153,7 +176,8 @@ class M3EHapticTracker {
       _hasTriggeredLowerBookend = false;
     }
 
-    if (config.vibrateOnUpperBookend && progress >= config.upperBookendThreshold) {
+    if (config.vibrateOnUpperBookend &&
+        progress >= config.upperBookendThreshold) {
       if (!_hasTriggeredUpperBookend) {
         _hasTriggeredUpperBookend = true;
         applyTypedHaptic('bookendUpper', 1.0);
@@ -165,8 +189,10 @@ class M3EHapticTracker {
 
     if (config.enableContinuousDrag && _lastDragHapticProgress != null) {
       final delta = (progress - _lastDragHapticProgress!).abs();
-      if (delta >= config.deltaProgressForDragThreshold) {
+      if (delta >= config.deltaProgressForDragThreshold &&
+          _hasPassedMinimumDragInterval()) {
         _lastDragHapticProgress = progress;
+        _lastDragHapticTime = DateTime.now();
         final amplitude = _computeAmplitude(
           progress,
           config.progressBasedDragMinScale,
@@ -180,10 +206,20 @@ class M3EHapticTracker {
   double _computeAmplitude(double progress, double minScale, double maxScale) {
     const exponent = 0.80;
     final t = progress.clamp(0.0, 1.0);
-    final progressScale = minScale + (maxScale - minScale) * pow(t, exponent).toDouble();
-    final velocityFraction = (_currentVelocity / config.maxVelocityToScale).clamp(0.0, 1.0);
+    final progressScale =
+        minScale + (maxScale - minScale) * pow(t, exponent).toDouble();
+    final velocityFraction =
+        (_currentVelocity / config.maxVelocityToScale).clamp(0.0, 1.0);
     final velocityBump = config.additionalVelocityMaxBump * velocityFraction;
 
     return (progressScale + velocityBump).clamp(0.0, 1.0);
+  }
+
+  bool _hasPassedMinimumDragInterval() {
+    if (config.minimumDragInterval == Duration.zero) return true;
+    final lastHapticTime = _lastDragHapticTime;
+    if (lastHapticTime == null) return true;
+    return DateTime.now().difference(lastHapticTime) >=
+        config.minimumDragInterval;
   }
 }

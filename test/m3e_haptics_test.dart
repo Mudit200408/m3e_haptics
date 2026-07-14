@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:m3e_haptics/m3e_haptics.dart';
@@ -17,7 +16,8 @@ void main() {
     hapticCalls.clear();
     // Intercept native haptic method channel
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel('m3e_haptics/haptics'), (MethodCall methodCall) async {
+        .setMockMethodCallHandler(const MethodChannel('m3e_haptics/haptics'),
+            (MethodCall methodCall) async {
       if (methodCall.method == 'vibrate') {
         final arguments = methodCall.arguments as Map;
         final type = arguments['type'] as String;
@@ -35,7 +35,8 @@ void main() {
 
     // Intercept platform channel calls for haptic feedback
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (MethodCall methodCall) async {
+        .setMockMethodCallHandler(SystemChannels.platform,
+            (MethodCall methodCall) async {
       if (methodCall.method == 'HapticFeedback.vibrate') {
         hapticCalls.add(methodCall.arguments as String?);
       }
@@ -45,7 +46,8 @@ void main() {
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel('m3e_haptics/haptics'), null);
+        .setMockMethodCallHandler(
+            const MethodChannel('m3e_haptics/haptics'), null);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
@@ -115,7 +117,8 @@ void main() {
       expect(hapticCalls.last, equals('HapticFeedbackType.heavyImpact'));
     });
 
-    test('velocity changes amplitude for drag texture (AOSP-aligned)', () async {
+    test('velocity changes amplitude for drag texture (AOSP-aligned)',
+        () async {
       final tracker = M3EHapticTracker(
         baseHaptic: M3EHapticFeedback.light,
         config: const M3EHapticConfig(

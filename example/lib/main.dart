@@ -26,7 +26,6 @@ class MyApp extends StatelessWidget {
           seedColor: const Color(0xFF6750A4),
           brightness: Brightness.dark,
           surface: const Color(0xFF141218),
-          background: const Color(0xFF1C1B1F),
         ),
       ),
       home: const HapticsDemoScreen(),
@@ -45,7 +44,6 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
   // Slider values
   double _sliderValue = 0.5;
   M3EHapticTracker? _sliderTracker;
-  Offset _lastPointerPosition = Offset.zero;
 
   // Slider Config Controls
   bool _enableContinuousDrag = true;
@@ -60,6 +58,8 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
   // Swipe items state
   final List<String> _swipeItems =
       List.generate(4, (i) => 'Tactile Card Item #${i + 1}');
+  final Map<String, double> _swipeProgress = {};
+  final Map<String, M3EHapticTracker> _swipeTrackers = {};
 
   @override
   void initState() {
@@ -81,6 +81,34 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
     );
   }
 
+  M3EHapticTracker _createLoaderTracker() {
+    return M3EHapticTracker(
+      baseHaptic: M3EHapticFeedback.light,
+      config: const M3EHapticConfig(
+        enableContinuousDrag: true,
+        deltaProgressForDragThreshold: 0.05,
+        vibrateOnLowerBookend: true,
+        vibrateOnUpperBookend: true,
+        lowerBookendThreshold: 0.01,
+        upperBookendThreshold: 0.99,
+      ),
+    );
+  }
+
+  M3EHapticTracker _createSwipeTracker() {
+    return M3EHapticTracker(
+      baseHaptic: M3EHapticFeedback.light,
+      config: const M3EHapticConfig(
+        enableContinuousDrag: true,
+        deltaProgressForDragThreshold: 0.04,
+        vibrateOnLowerBookend: false,
+        vibrateOnUpperBookend: false,
+        progressBasedDragMinScale: 0.10,
+        progressBasedDragMaxScale: 0.85,
+      ),
+    );
+  }
+
   // Simulate loader progress
   void _runLoader() async {
     if (_isLoaderRunning) return;
@@ -89,18 +117,7 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
       _loaderProgress = 0.0;
     });
 
-    _loaderTracker = M3EHapticTracker(
-      baseHaptic: M3EHapticFeedback.light,
-      config: const M3EHapticConfig(
-        enableContinuousDrag: true,
-        deltaProgressForDragThreshold: 0.05, // tick every 5%
-        vibrateOnLowerBookend: true,
-        vibrateOnUpperBookend: true,
-        lowerBookendThreshold: 0.01,
-        upperBookendThreshold: 0.99,
-      ),
-    );
-    _loaderTracker!.start(0.0, Offset.zero);
+    _loaderTracker = _createLoaderTracker();
 
     while (_loaderProgress < 1.0 && _isLoaderRunning) {
       await Future.delayed(const Duration(milliseconds: 100));
@@ -108,7 +125,6 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
       setState(() {
         _loaderProgress = (_loaderProgress + 0.05).clamp(0.0, 1.0);
       });
-      _loaderTracker!.update(_loaderProgress, Offset.zero);
     }
 
     setState(() {
@@ -124,7 +140,7 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
       appBar: AppBar(
         title: const Text('M3E Haptics Showcase'),
         centerTitle: true,
-        backgroundColor: cs.surfaceVariant.withOpacity(0.3),
+        backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -178,23 +194,15 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Flutter Slider with Haptics
-          Listener(
-            onPointerDown: (event) {
-              _lastPointerPosition = event.position;
-              _initSliderTracker();
-              _sliderTracker?.start(_sliderValue, event.position);
-            },
-            onPointerMove: (event) {
-              _lastPointerPosition = event.position;
-            },
+          M3EHapticListener(
+            tracker: _sliderTracker!,
+            progress: _sliderValue,
             child: Slider(
               value: _sliderValue,
               onChanged: (val) {
                 setState(() {
                   _sliderValue = val;
                 });
-                _sliderTracker?.update(val, _lastPointerPosition);
               },
             ),
           ),
@@ -256,10 +264,15 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
         children: [
           Row(
             children: [
-              CircularProgressIndicator(
-                value: _loaderProgress,
-                strokeWidth: 6,
-                backgroundColor: cs.surfaceVariant,
+              M3EHapticListener(
+                tracker: _loaderTracker ?? _createLoaderTracker(),
+                progress: _loaderProgress,
+                listenToPointer: false,
+                child: CircularProgressIndicator(
+                  value: _loaderProgress,
+                  strokeWidth: 6,
+                  backgroundColor: cs.surfaceContainerHighest,
+                ),
               ),
               const SizedBox(width: 24),
               Expanded(
@@ -305,32 +318,42 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
             itemCount: _swipeItems.length,
             itemBuilder: (context, index) {
               final item = _swipeItems[index];
+              final tracker = _swipeTrackers.putIfAbsent(
+                item,
+                _createSwipeTracker,
+              );
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
-                child: Dismissible(
-                  key: ValueKey(item),
-                  onUpdate: (details) {
-                    // Linear amplitude ramp: 0.10 to 0.85
-                    final amplitude = 0.10 + (0.85 - 0.10) * details.progress;
-                    applyTypedHaptic('dragTexture', amplitude);
-                  },
-                  onDismissed: (_) {
-                    setState(() {
-                      _swipeItems.removeAt(index);
-                    });
-                  },
-                  background: Container(
-                    color: Colors.redAccent,
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.only(left: 20),
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      leading: Icon(Icons.swipe, color: cs.primary),
-                      title: Text(item),
-                      trailing: const Icon(Icons.chevron_right),
+                child: M3EHapticListener(
+                  tracker: tracker,
+                  progress: _swipeProgress[item] ?? 0.0,
+                  child: Dismissible(
+                    key: ValueKey(item),
+                    onUpdate: (details) {
+                      setState(() {
+                        _swipeProgress[item] = details.progress;
+                      });
+                    },
+                    onDismissed: (_) {
+                      setState(() {
+                        _swipeItems.removeAt(index);
+                        _swipeProgress.remove(item);
+                        _swipeTrackers.remove(item);
+                      });
+                    },
+                    background: Container(
+                      color: Colors.redAccent,
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 20),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: Icon(Icons.swipe, color: cs.primary),
+                        title: Text(item),
+                        trailing: const Icon(Icons.chevron_right),
+                      ),
                     ),
                   ),
                 ),
@@ -343,6 +366,8 @@ class _HapticsDemoScreenState extends State<HapticsDemoScreen> {
                 setState(() {
                   _swipeItems.addAll(
                       List.generate(4, (i) => 'Tactile Card Item #${i + 1}'));
+                  _swipeProgress.clear();
+                  _swipeTrackers.clear();
                 });
               },
               icon: const Icon(Icons.refresh),
