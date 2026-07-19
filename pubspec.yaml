@@ -1,11 +1,21 @@
 name: m3e_haptics
 description: High-fidelity AOSP-aligned native haptic feedback compositions for Flutter.
 version: 0.0.1
-publish_to: 'none'
+homepage: https://github.com/Mudit200408/m3e_haptics
+repository: https://github.com/Mudit200408/m3e_haptics
+issue_tracker: https://github.com/Mudit200408/m3e_haptics/issues
+
+topics:
+  - ui
+  - material-3-expressive
+  - haptics
+  - feedback
+  - aosp
+
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
-  flutter: ">=3.0.0"
+  sdk: ^3.11.0
+  flutter: ">=3.22.0"
 
 dependencies:
   flutter:

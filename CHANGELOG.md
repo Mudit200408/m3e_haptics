@@ -1,3 +1,3 @@
 ## 0.0.1
 
-* TODO: Describe initial release.
+* Initial release of m3e_haptics, providing native AOSP-aligned haptic compositions.

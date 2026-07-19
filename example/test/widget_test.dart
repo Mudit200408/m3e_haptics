@@ -7,7 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:m3e_haptics_example/main.dart';
 
 void main() {
-  testWidgets('Haptics example app renders successfully', (WidgetTester tester) async {
+  testWidgets('Haptics example app renders successfully',
+      (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
     expect(find.text('M3E Haptics Showcase'), findsOneWidget);
   });

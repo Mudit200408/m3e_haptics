@@ -16,47 +16,49 @@ void main() {
     hapticCalls.clear();
     // Intercept native haptic method channel
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel('m3e_haptics/haptics'),
-            (MethodCall methodCall) async {
-      if (methodCall.method == 'vibrate') {
-        final arguments = methodCall.arguments as Map;
-        final type = arguments['type'] as String;
-        final String mappedType = switch (type) {
-          'dragTexture' => 'HapticFeedbackType.lightImpact',
-          'bookendLower' => 'HapticFeedbackType.heavyImpact',
-          'tickCrossing' => 'HapticFeedbackType.mediumImpact',
-          'bookendUpper' => 'HapticFeedbackType.heavyImpact',
-          _ => 'HapticFeedbackType.mediumImpact',
-        };
-        hapticCalls.add(mappedType);
-      }
-      return null;
-    });
+        .setMockMethodCallHandler(const MethodChannel('m3e_haptics/haptics'), (
+          MethodCall methodCall,
+        ) async {
+          if (methodCall.method == 'vibrate') {
+            final arguments = methodCall.arguments as Map;
+            final type = arguments['type'] as String;
+            final String mappedType = switch (type) {
+              'dragTexture' => 'HapticFeedbackType.lightImpact',
+              'bookendLower' => 'HapticFeedbackType.heavyImpact',
+              'tickCrossing' => 'HapticFeedbackType.mediumImpact',
+              'bookendUpper' => 'HapticFeedbackType.heavyImpact',
+              _ => 'HapticFeedbackType.mediumImpact',
+            };
+            hapticCalls.add(mappedType);
+          }
+          return null;
+        });
 
     // Intercept platform channel calls for haptic feedback
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform,
-            (MethodCall methodCall) async {
-      if (methodCall.method == 'HapticFeedback.vibrate') {
-        hapticCalls.add(methodCall.arguments as String?);
-      }
-      return null;
-    });
+        .setMockMethodCallHandler(SystemChannels.platform, (
+          MethodCall methodCall,
+        ) async {
+          if (methodCall.method == 'HapticFeedback.vibrate') {
+            hapticCalls.add(methodCall.arguments as String?);
+          }
+          return null;
+        });
   });
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-            const MethodChannel('m3e_haptics/haptics'), null);
+          const MethodChannel('m3e_haptics/haptics'),
+          null,
+        );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
   group('M3EHapticTracker tests in standalone package', () {
     test('does not play haptics when baseHaptic is none', () {
-      final tracker = M3EHapticTracker(
-        baseHaptic: M3EHapticFeedback.none,
-      );
+      final tracker = M3EHapticTracker(baseHaptic: M3EHapticFeedback.none);
       tracker.start(0.5, Offset.zero);
       tracker.update(0.6, const Offset(10, 0));
       expect(hapticCalls, isEmpty);
@@ -117,35 +119,37 @@ void main() {
       expect(hapticCalls.last, equals('HapticFeedbackType.heavyImpact'));
     });
 
-    test('velocity changes amplitude for drag texture (AOSP-aligned)',
-        () async {
-      final tracker = M3EHapticTracker(
-        baseHaptic: M3EHapticFeedback.light,
-        config: const M3EHapticConfig(
-          enableContinuousDrag: true,
-          deltaProgressForDragThreshold: 0.01,
-          additionalVelocityMaxBump: 0.25,
-          maxVelocityToScale: 100.0,
-          vibrateOnLowerBookend: false,
-          vibrateOnUpperBookend: false,
-        ),
-      );
+    test(
+      'velocity changes amplitude for drag texture (AOSP-aligned)',
+      () async {
+        final tracker = M3EHapticTracker(
+          baseHaptic: M3EHapticFeedback.light,
+          config: const M3EHapticConfig(
+            enableContinuousDrag: true,
+            deltaProgressForDragThreshold: 0.01,
+            additionalVelocityMaxBump: 0.25,
+            maxVelocityToScale: 100.0,
+            vibrateOnLowerBookend: false,
+            vibrateOnUpperBookend: false,
+          ),
+        );
 
-      // Low velocity movement
-      tracker.start(0.1, const Offset(10, 0));
-      await Future.delayed(const Duration(milliseconds: 150));
-      tracker.update(0.2, const Offset(11, 0));
-      expect(hapticCalls, isNotEmpty);
-      expect(hapticCalls.last, equals('HapticFeedbackType.lightImpact'));
+        // Low velocity movement
+        tracker.start(0.1, const Offset(10, 0));
+        await Future.delayed(const Duration(milliseconds: 150));
+        tracker.update(0.2, const Offset(11, 0));
+        expect(hapticCalls, isNotEmpty);
+        expect(hapticCalls.last, equals('HapticFeedbackType.lightImpact'));
 
-      hapticCalls.clear();
+        hapticCalls.clear();
 
-      // High velocity movement
-      tracker.start(0.2, const Offset(11, 0));
-      await Future.delayed(const Duration(milliseconds: 5));
-      tracker.update(0.5, const Offset(500, 0));
-      expect(hapticCalls, isNotEmpty);
-      expect(hapticCalls.last, equals('HapticFeedbackType.lightImpact'));
-    });
+        // High velocity movement
+        tracker.start(0.2, const Offset(11, 0));
+        await Future.delayed(const Duration(milliseconds: 5));
+        tracker.update(0.5, const Offset(500, 0));
+        expect(hapticCalls, isNotEmpty);
+        expect(hapticCalls.last, equals('HapticFeedbackType.lightImpact'));
+      },
+    );
   });
 }

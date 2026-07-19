@@ -1,5 +1,7 @@
 # M3E Haptics
 
+![M3E Intro](doc/haptics.png)
+
 A Flutter package providing expressive, high-fidelity AOSP-aligned native haptic feedback compositions for Flutter. It enables continuous drag textures, dynamic velocity bumps, snap-to-tick behaviors, and bookend feedback using native Android haptic compositions (`PRIMITIVE_LOW_TICK`, `PRIMITIVE_TICK`, and `PRIMITIVE_CLICK`) with automatic fallbacks for iOS, Web, and desktop platforms.
 
 > [!NOTE]
